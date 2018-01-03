@@ -350,6 +350,14 @@ class WRISTWidget:
         self.dilate_image.checked = True
         frameLayout.addWidget(self.dilate_image) 
 
+        #
+        # Flip Seed XY Checkmark
+        #
+        self.flip_seed_XY = qt.QCheckBox("Flip Seed XY")
+        self.flip_seed_XY.toolTip = "When checked, flip the XY coordinates of the seed locations. Useful if the image is not in standard RAS orientation. Alternatively, when loading the image into Slicer could do the ignore orientation option."
+        self.flip_seed_XY.checked = False
+        frameLayout.addWidget(self.flip_seed_XY) 
+
 
 
     def onStopButton(self):
@@ -503,9 +511,6 @@ class WRISTWidget:
 			sitkUtils.PushVolumeToSlicer(EdgePotentialMap, targetNode=self.Filtered, name='Filtered', className='vtkMRMLScalarVolumeNode')
 			slicer.util.setSliceViewerLayers(background='keep-current', foreground=self.Filtered, label='keep-current', foregroundOpacity=0.5, labelOpacity=1)
 
-
-
-
     def onRelaxationSliderChange(self, newValue):
         self.RelaxationAmount = newValue
 
@@ -560,6 +565,10 @@ class WRISTWidget:
     def onCompute(self):
     	# Flip the flag on the stop segmentation button 
     	self.multiHelper.segmentationClass.stop_segmentation = False
+
+    	# Move the current state of the flip seed XY flag to the segmentation class object
+    	self.multiHelper.segmentationClass.flip_seed_XY = self.flip_seed_XY.checked
+
         slicer.app.processEvents()
 
         # Find the output image in Slicer to save the segmentation to
@@ -583,10 +592,36 @@ class WRISTWidget:
         imageID = self.inputSelector.currentNode()
         image = sitkUtils.PullFromSlicer(imageID.GetName())
 
-        # Slicer has the fiducial markers in physical coordinate space, but need to have the points in voxel space
+        # Slicer has the fiducial markers in physical coordinate space, but need to have the po0ints in voxel space
         # Convert using a SimpleITk function   
         for i in range(numFids):
-            seedPoints[i] = image.TransformPhysicalPointToContinuousIndex(seedPoints[i])
+
+        	if self.flip_seed_XY.checked == True:
+        		# Image is not in the standard RAS format so multiply the X and Y by negative one
+        		seedPoints[i] = image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][0], -1*seedPoints[i][1], seedPoints[i][2]])
+        	else:
+        		seedPoints[i] = image.TransformPhysicalPointToContinuousIndex([seedPoints[i][0], seedPoints[i][1], seedPoints[i][2]])
+
+        		# Need to multiply the first two coordinates by negative one (because how Slicer interprets the coordinate system)
+        		seedPoints[i] = np.asarray(seedPoints[i])
+        		seedPoints[i][0] = -1*seedPoints[i][0]
+        		seedPoints[i][1] = -1*seedPoints[i][1]
+
+
+    		print('seedPoints[i]')
+    		print(seedPoints[i])
+    		
+
+
+
+            # print(image.TransformPhysicalPointToContinuousIndex([seedPoints[i][0], seedPoints[i][0], seedPoints[i][0]]))
+            # print(image.TransformPhysicalPointToContinuousIndex([seedPoints[i][1], seedPoints[i][1], seedPoints[i][1]]))
+            # print(image.TransformPhysicalPointToContinuousIndex([seedPoints[i][2], seedPoints[i][2], seedPoints[i][2]]))
+
+            # print(image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][0], -1*seedPoints[i][0], -1*seedPoints[i][0]]))
+            # print(image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][1], -1*seedPoints[i][1], -1*seedPoints[i][1]]))
+            # print(image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][2], -1*seedPoints[i][2], -1*seedPoints[i][2]]))
+
 
         # Initilize the two classes that are defined at the bottom of this file
         # import BoneSegmentation
@@ -1248,29 +1283,49 @@ class BoneSeg(object):
         return self
 
     def RoundSeedPoint(self):
-        tempseedPoint = np.array(self.seedPoint).astype(int) # Just to be safe, make it int again
-        tempseedPoint = tempseedPoint[0]
+		tempseedPoint = np.array(self.seedPoint).astype(int) # Just to be safe, make it int again
+		tempseedPoint = tempseedPoint[0]
 
-        if self.convertSeedPhyscialFlag == True:
-            # Convert from physical to image domain
-            tempFloat = [float(tempseedPoint[0]), float(tempseedPoint[1]), float(tempseedPoint[2])]
+		# Convert from physical to image domain
+		if self.convertSeedPhyscialFlag == True:
 
-            # Convert from physical units to voxel coordinates
-            # tempVoxelCoordinates = self.image.TransformPhysicalPointToContinuousIndex(tempFloat)
-            # self.seedPoint = tempVoxelCoordinates
-            self.seedPoint = tempFloat
+			# Check to see if the seed XY coordinates should be flipped (based on the checkmark in the GUI)
+			if self.flip_seed_XY == False:
+				tempFloat = [float(tempseedPoint[0]), float(tempseedPoint[1]), float(tempseedPoint[2])]
+			else:
+				# The image is not in the standard RAS orientation so the X and Y of the seed coordinates need to
+				# Be flipped (the user has checked the checkmark in the user interface GUI)
+				tempFloat = [float(tempseedPoint[0]), float(tempseedPoint[2]), float(tempseedPoint[1])]
 
-            # Need to round the seedPoints because integers are required for indexing
-            ScalingFactor = np.array(self.ScalingFactor)
-            tempseedPoint = np.array(self.seedPoint).astype(int)
-            tempseedPoint = abs(tempseedPoint)
-            tempseedPoint = tempseedPoint/ScalingFactor # Scale the points down as well
-            tempseedPoint = tempseedPoint.round() # Need to round it again for Python 3.3
+			# Convert from physical units to voxel coordinates
+			tempVoxelCoordinates = self.image.TransformPhysicalPointToIndex(tempFloat)
 
-        self.seedPoint = [tempseedPoint]
-        self.original_seedPoint = [tempseedPoint]
+			print('tempVoxelCoordinates')
+			print(tempVoxelCoordinates)
 
-        return self
+			# self.seedPoint = tempVoxelCoordinates
+
+
+			self.seedPoint = tempFloat
+
+
+			# Need to round the seedPoints because integers are required for indexing
+			ScalingFactor = np.array(self.ScalingFactor)
+			tempseedPoint = np.array(self.seedPoint).astype(int)
+			tempseedPoint = abs(tempseedPoint)
+			tempseedPoint = tempseedPoint/ScalingFactor # Scale the points down as well
+			tempseedPoint = tempseedPoint.round() # Need to round it again for Python 3.3
+
+		self.seedPoint = [tempseedPoint]
+		self.original_seedPoint = [tempseedPoint]
+
+
+		print('self.seedPoint')
+		print(self.seedPoint)
+
+
+
+		return self
 
     def UnCropImage(self):
         ' Indexing to put the segmentation of the cropped image back into the original MRI '
@@ -1409,6 +1464,8 @@ class BoneSeg(object):
         self.SeedListFilename = [] 
         self.SkipTresholdCalculation = False # Flag for running the sigmoid threshold calculation
         self.DilateImage = False # Flag for dilating the final segmentation result
+        self.flip_seed_XY = False # Flag for flipping the XY coordinates of the seed location
+
 
         ## Initilize the ITK filters ##
         # Filters to down/up sample the image for faster computation
@@ -1752,7 +1809,7 @@ class Multiprocessor(object):
 
         # segmentation = self.segmentationClass.Execute(self.MRI_Image,[SeedPoint])
         segmentation = self.segmentationClass.Execute(self.MRI_Image, [SeedPoint], verbose=True, 
-                                    returnSitkImage=False, convertSeedPhyscialFlag=True)
+                                    returnSitkImage=False, convertSeedPhyscialFlag=False)
 
 
         print('DONE WITH SEGMENTATION!')
