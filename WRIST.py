@@ -10,7 +10,6 @@ import sitkUtils
 import numpy as np
 
 
-
 import timeit
 
 
@@ -106,46 +105,6 @@ class WRISTWidget:
         self.markupSelector.setToolTip("Pick the markup list of fiducial markers to use as initial points for the segmentation. (One marker for each object of interest)")
         frameLayout.addRow(self.markupSelectorLabel, self.markupSelector)
         self.markupSelector.connect('currentNodeChanged(vtkMRMLNode*)', self.onMarkupSelect)
-
-     
-
-
-        # #
-        # # Level set maximum iterations slider
-        # #
-        # self.label = qt.QLabel()
-        # self.label.setText("Level Set Maximum Iterations: ")
-        # self.label.setToolTip(
-        #     "Select the maximum number of iterations for the level set convergence")
-        # self.MaxItsInputSlider = ctk.ctkSliderWidget()
-        # self.MaxItsInputSlider.minimum = 1
-        # self.MaxItsInputSlider.maximum = 2500
-        # self.MaxItsInputSlider.value = 2000
-        # self.MaxItsInputSlider.connect('valueChanged(double)', self.onMaxItsInputSliderChange)
-        # frameLayout.addRow(self.label, self.MaxItsInputSlider)
-        # #Set default value
-        # self.MaxIts = self.MaxItsInputSlider.value
- 
-        # #
-        # # Level set maximum RMS error slider
-        # #        
-        # self.label = qt.QLabel()
-        # self.label.setText("Level Set Maximum RMS Error: ")
-        # self.label.setToolTip(
-        #     "Select the maximum root mean square error to determine convergence of the segmentation")
-        # self.MaxRMSErrorInputSlider = ctk.ctkSliderWidget()
-        # self.MaxRMSErrorInputSlider.minimum = 0.001
-        # self.MaxRMSErrorInputSlider.maximum = 0.15
-        # self.MaxRMSErrorInputSlider.value = 0.008
-        # self.MaxRMSErrorInputSlider.singleStep = 0.001
-        # self.MaxRMSErrorInputSlider.tickInterval = 0.001
-        # self.MaxRMSErrorInputSlider.decimals = 3
-        # self.MaxRMSErrorInputSlider.connect('valueChanged(double)', self.onMaxRMSErrorInputSliderChange)
-        # frameLayout.addRow(self.label, self.MaxRMSErrorInputSlider)
-        # #Set default value
-        # self.MaxRMSError = self.MaxRMSErrorInputSlider.value
-
-
 
         #
         # Bone Selection Table 
@@ -382,6 +341,14 @@ class WRISTWidget:
         self.show_filtered_image.toolTip = "When checked, show the filtered image (when adjusting the Sigmoid Threshold slider)."
         self.show_filtered_image.checked = False
         frameLayout.addWidget(self.show_filtered_image) 
+
+        #
+        # Dilate Final Segmentation
+        #
+        self.dilate_image = qt.QCheckBox("Dilate Final Image")
+        self.dilate_image.toolTip = "When checked, dilate the final segmentation result. Useful if the segmentation boundary is uniformly a bit too small."
+        self.dilate_image.checked = True
+        frameLayout.addWidget(self.dilate_image) 
 
 
 
@@ -628,7 +595,7 @@ class WRISTWidget:
 
         parameters = [self.ShapeCurvatureScale, self.ShapeMaxRMSError, self.ShapeMaxIts, 
                         self.ShapePropagationScale, self.selected_gender, self.BonesSelected, self.RelaxationAmount,
-                        self.DiffusionIts, self.SigmoidThreshold] 
+                        self.DiffusionIts, self.dilate_image.checked, self.SigmoidThreshold] 
        
         NumCPUs = 1
         Segmentation = self.multiHelper.Execute(seedPoints, image, parameters, NumCPUs, self.outputSelector, True)
@@ -812,6 +779,19 @@ class BoneSeg(object):
         #     print('\033[93m' + "Smoothing Label...")
         # self.SmoothLabel()
 
+        # Dilating by same radius if the user selected the checkmark in the GUI
+        if self.DilateImage == True:
+        	if self.verbose == True:
+        		print(' ')        		
+        		print('\033[93m' + "Dilating the Segmentation...")
+
+    		# Cast to 16 bit (needed for the fill filter to work)
+    		self.segImg  = sitk.Cast(self.segImg, sitk.sitkUInt16)
+    		self.dilateFilter.SetKernelRadius(1)
+    		self.segImg = self.dilateFilter.Execute(self.segImg, 0, 1, False)
+
+
+
         if self.verbose == True:
             print(' ')
             print('\033[93m' + "Changing Label Value...")
@@ -823,12 +803,7 @@ class BoneSeg(object):
         	return
 
 
-        # # Dilating by same radius
-        # self.dilateFilter.SetKernelRadius(3)
-        # self.segImg = self.dilateFilter.Execute(self.segImg, 0, 1, False)
-
         if self.verbose == True:
-
             print(' ')
             print('\033[90m' + "Uncropping Image...")
         self.UnCropImage()
@@ -1433,6 +1408,7 @@ class BoneSeg(object):
         self.MaxVolume = []
         self.SeedListFilename = [] 
         self.SkipTresholdCalculation = False # Flag for running the sigmoid threshold calculation
+        self.DilateImage = False # Flag for dilating the final segmentation result
 
         ## Initilize the ITK filters ##
         # Filters to down/up sample the image for faster computation
@@ -1765,14 +1741,12 @@ class Multiprocessor(object):
         self.segmentationClass.SetCurrentBone(self.parameters[5][ndx])
         self.segmentationClass.SetAnatomicalRelaxation(self.parameters[6])
         self.segmentationClass.SetAnisotropicIts(self.parameters[7])
-
-
-
+        self.segmentationClass.DilateImage = self.parameters[8]
 
 
         # Only set the sigmoid filter threshold if the user selected on (not equal to the default of zero)
         if self.parameters[8] != 0:
-            self.segmentationClass.SetLevelSetLowerThreshold(self.parameters[8])
+            self.segmentationClass.SetLevelSetLowerThreshold(self.parameters[9])
             self.segmentationClass.SkipTresholdCalculation = True
 
 
