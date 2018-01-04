@@ -21,13 +21,60 @@ class WRIST:
     def __init__(self, parent):
         import string
         parent.title = "WRIST - Carpal Bone Segmentation"
-        parent.categories = ["WRIST"]
-        parent.contributors = ["Brent Foster (UC Davis)"]
-        parent.helpText = string.Template("Use this module to segment the eight carpal bones of the wrist. Input is a seed location defined by the user within each bone of interest. The Confidence Connected ITK Filter is then applied. ").substitute({
-            'a': parent.slicerWikiUrl, 'b': slicer.app.majorVersion, 'c': slicer.app.minorVersion})
+        parent.categories = ["WRIST Segmentation"]
+        parent.contributors = ["Brent Foster (University of California Davis)"]
+        parent.helpText = """
+
+        	WRIST-A WRist Image Segmentation Toolkit for Carpal Bone Delineation from MRI
+        	<br>
+        	<br>
+        	Use this module to segment the eight carpal bones of the wrist from MRI. <br>
+        	Input volume is the MR image. <br>
+        	Output volume is the image to save the resulting segmentation to. <br>
+        	<br>
+        	HOW TO
+        	<br>
+        	(1) Select the input MRI and create a new output volume (for saving the image to).
+        	<br>
+        	(2) Use the 3D Slicer fiduicial marker tool to click once per bone.
+        	<br>
+        	(3) Select the markups list in the Markup List selector. 
+        	<br>
+        	(4) Click on the bone selection table on the bones of interest in the same order as the fiducial markers.
+        	<br>
+        	(5) Select male, female, or unknown if not known. (For basic prior shape information).
+        	<br>
+        	(6) Click on Compute button.
+        	<br>
+        	<br>
+
+        	HINTS
+        	<br>
+        	(*) To improve segmentation result, select the "Show Filtered Image" checkmark on bottom. Then adjust the sigmoid threshold.
+        	Choose a value which selects the bone edges without including too much background. 
+        	<br>
+        	(*) If leakage into the background, try reducing the propagation scale, lowering the initial maximum iterations, decreasing the anisotropic diffusion iterations, or adjusting sigmoid threshold. 
+        	<br>
+        	(*) If it's missing sections of the bone, try increasing anisotropic diffusion iterations (to reduce noise), increasing the propagation scale (more outward force on the level set), or adjusting sigmoid threshold. 
+        	<br>
+        	<br>
+        	Please see the README and source code at https://github.com/ajchaudhari/WRIST-segmentation <br>
+        	<br>
+        	For details on the approach please see Foster et al. 'WRIST-A WRist Image Segmentation Toolkit for Carpal Bone Delineation from MRI' Computerized Medical Imaging and Graphics (2017).
+        	"""
+
         parent.acknowledgementText = """
-    Supported by NSF and NIH funding. Module implemented by Brent Foster.
-    """
+
+	        The authors acknowledge the following funding sources: National Science Foundation (NSF) GRFP Grant No. 1650042, and National Institutes of Health (NIH) grants: K12 HD051958 and R03 EB015099.
+	        <br>
+	        <br>
+		    Please see the corresponding journal publication for details on the method.
+		    <br>
+		    <br>
+		    Foster et al. 'WRIST-A WRist Image Segmentation Toolkit for Carpal Bone Delineation from MRI' Computerized Medical Imaging and Graphics (2017).
+
+
+		    """
         self.parent = parent
 
 class WRISTWidget:
@@ -94,7 +141,7 @@ class WRISTWidget:
         #
         self.markupSelectorLabel = qt.QLabel()
         self.markupSelectorLabel.setFont(qt.QFont('Arial', 12))
-        self.markupSelectorLabel.setText("Markup list: ")
+        self.markupSelectorLabel.setText("Markup List: ")
         self.markupSelector = slicer.qMRMLNodeComboBox()
         self.markupSelector.setFont(qt.QFont('Arial', 12))
         self.markupSelector.nodeTypes = ("vtkMRMLMarkupsFiducialNode", "")
@@ -358,6 +405,13 @@ class WRISTWidget:
         self.flip_seed_XY.checked = False
         frameLayout.addWidget(self.flip_seed_XY) 
 
+        #
+        # Flip Sigmoid Checkmark
+        #
+        self.flip_sigmoid = qt.QCheckBox("Flip Sigmoid")
+        self.flip_sigmoid.toolTip = "When checked, the image to segment has the bones with a higher intensity (whiter) while the background is darker. Useful for certain MRI sequences and potentially for CT."
+        self.flip_sigmoid.checked = False
+        frameLayout.addWidget(self.flip_sigmoid) 
 
 
     def onStopButton(self):
@@ -366,9 +420,6 @@ class WRISTWidget:
 
     	slicer.app.processEvents()
     	self.multiHelper.segmentationClass.stop_segmentation = True
-
-
-
 
 
     def Reset_Table_Widget(self):
@@ -431,9 +482,6 @@ class WRISTWidget:
 			sitkUtils.PushVolumeToSlicer(image, targetNode=self.Filtered, name='AD_Filtered', className='vtkMRMLScalarVolumeNode')
 			slicer.util.setSliceViewerLayers(background='keep-current', foreground=self.Filtered, label='keep-current', foregroundOpacity=0.5, labelOpacity=1)
 
-
-
-
     def onGenderSelectionListChange(self):
         self.selected_gender = self.GenderSelectionList.currentItem().text()
         print('self.selected_gender')
@@ -465,7 +513,6 @@ class WRISTWidget:
         print(self.BonesSelected)
         print(' ')        
 
-
     def onSigmoidInputSliderChange(self, newValue):
 		self.SigmoidThreshold = newValue
 
@@ -473,8 +520,18 @@ class WRISTWidget:
 		if self.show_filtered_image.checked == True:			
 			# Sigmoid SimpleITK Filter
 			sigFilter = sitk.SigmoidImageFilter()
-			sigFilter.SetAlpha(0)
-			sigFilter.SetBeta(int(self.SigmoidThreshold))
+
+			# Check to see if we're segmenting bright or dark bones on the image
+			# By checking the flag of the checkmark on the user interface
+			if self.flip_sigmoid.checked == False:
+				sigFilter.SetAlpha(0)
+				sigFilter.SetBeta(int(self.SigmoidThreshold))
+				self.SigmoidInputSlider.maximum = 300
+			else:
+				sigFilter.SetAlpha(int(self.SigmoidThreshold))
+				sigFilter.SetBeta(0)
+				self.SigmoidInputSlider.maximum = 3000
+
 			sigFilter.SetOutputMinimum(0)
 			sigFilter.SetOutputMaximum(255)
 
@@ -482,8 +539,6 @@ class WRISTWidget:
 			# Find the input image in Slicer and convert to a SimpleITK image type
 			imageID = self.inputSelector.currentNode()
 			image = sitkUtils.PullFromSlicer(imageID.GetName())
-
-
 
 			processedImage  = sigFilter.Execute(image) 
 			processedImage  = sitk.Cast(processedImage, sitk.sitkUInt16)
@@ -565,6 +620,9 @@ class WRISTWidget:
     def onCompute(self):
     	# Flip the flag on the stop segmentation button 
     	self.multiHelper.segmentationClass.stop_segmentation = False
+
+    	# Set the flag for the flip sigmoid for the segmentation class
+    	self.multiHelper.segmentationClass.flip_sigmoid = self.flip_sigmoid.checked
 
     	# Move the current state of the flip seed XY flag to the segmentation class object
     	self.multiHelper.segmentationClass.flip_seed_XY = self.flip_seed_XY.checked
@@ -703,8 +761,9 @@ class BoneSeg(object):
 
         # Estimate the threshold level by image intensity statistics
         # Skip if the user selected a lower threshold already
-        if self.SkipTresholdCalculation == False:
+        if self.SkipTresholdCalculation == False:        	
             LowerThreshold = self.EstimateSigmoid()
+            asdasd
             if self.verbose == True:
                 print(' ')
                 print('\033[94m' + 'LowerThreshold:' + str(LowerThreshold))
@@ -1465,7 +1524,7 @@ class BoneSeg(object):
         self.SkipTresholdCalculation = False # Flag for running the sigmoid threshold calculation
         self.DilateImage = False # Flag for dilating the final segmentation result
         self.flip_seed_XY = False # Flag for flipping the XY coordinates of the seed location
-
+        self.flip_sigmoid = False # Flag for segmenting bones which have a higher intensity than background (i.e. lighter)
 
         ## Initilize the ITK filters ##
         # Filters to down/up sample the image for faster computation
@@ -1536,6 +1595,7 @@ class BoneSeg(object):
     def SetLevelSetUpperThreshold(self, upperThreshold):
         self.sigFilter.SetAlpha(int(upperThreshold))
         self.thresholdFilter.SetUpperThreshold(int(upperThreshold))
+
         self.thresholdLevelSet.SetUpperThreshold(int(upperThreshold))   
         
     def SetLevelSetError(self,MaxError):        
@@ -1803,8 +1863,18 @@ class Multiprocessor(object):
 
         # Only set the sigmoid filter threshold if the user selected on (not equal to the default of zero)
         if self.parameters[8] != 0:
-            self.segmentationClass.SetLevelSetLowerThreshold(self.parameters[9])
-            self.segmentationClass.SkipTresholdCalculation = True
+        	
+        	self.segmentationClass.SkipTresholdCalculation = True
+
+        	# Check to see if we are segmenting bright or dark bones
+        	# Essentially, just flip the lower and upper threshold of the levelset
+        	if self.segmentationClass.flip_sigmoid == False: 
+        		self.segmentationClass.SetLevelSetLowerThreshold(self.parameters[9])
+        		self.segmentationClass.SetLevelSetUpperThreshold(0)
+        	else:
+        		self.segmentationClass.SetLevelSetLowerThreshold(0)
+        		self.segmentationClass.SetLevelSetUpperThreshold(self.parameters[9])
+
 
 
         # segmentation = self.segmentationClass.Execute(self.MRI_Image,[SeedPoint])
