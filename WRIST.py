@@ -90,6 +90,9 @@ class WRISTWidget:
         self.multiHelper.segmentationClass.stop_segmentation = False
 
 
+        # Initilize a variable to hold the bones selected
+        self.BonesSelected = []
+
     def setup(self):
         frame = qt.QFrame()
         frameLayout = qt.QFormLayout()
@@ -421,7 +424,6 @@ class WRISTWidget:
     	slicer.app.processEvents()
     	self.multiHelper.segmentationClass.stop_segmentation = True
 
-
     def Reset_Table_Widget(self):
         # Reset the bone labels in the table widget
         # self.bone_list = [['Trapezium', 'Trapezoid', 'Scaphoid', 'Capitate'],['Lunate', 'Hamate', 'Triquetrum', 'Pisiform']]
@@ -487,7 +489,10 @@ class WRISTWidget:
         print('self.selected_gender')
         print(self.selected_gender)
 
-    def onModuleListChange(self):
+        # Test to see if the Compute button should be enabled/disabled
+        self.UpdatecomputeButtonState()
+
+    def onModuleListChange(self):        
         # Reset the table first!
         self.Reset_Table_Widget()
 
@@ -511,7 +516,10 @@ class WRISTWidget:
 
         print('BonesSelected')
         print(self.BonesSelected)
-        print(' ')        
+        print(' ')
+
+        # Test to see if the Compute button should be enabled/disabled
+        self.UpdatecomputeButtonState()
 
     def onSigmoidInputSliderChange(self, newValue):
 		self.SigmoidThreshold = newValue
@@ -600,21 +608,18 @@ class WRISTWidget:
         self.NumCPUs = newValue
 
     def UpdatecomputeButtonState(self):
-        #Enable the 'Compute' button only if there is a selection to the input volume and markup list
-        if not self.markupSelector.currentNode():
-            self.computeButton.enabled = False
-        elif self.inputSelector.currentNode():
+        # Enable the 'Compute' button only if there is a selection to all the required inputs
+        if self.markupSelector.currentNode() and self.inputSelector.currentNode() and self.outputSelector.currentNode() and self.GenderSelectionList.currentItem() != None and self.BonesSelected != []:
             self.computeButton.enabled = True
         else:
             self.computeButton.enabled = False
 
     def onInputSelect(self, node):
-        #Test to see if the Compute button should be enabled/disabled
+        # Test to see if the Compute button should be enabled/disabled
         self.UpdatecomputeButtonState()
-        # self.ImageNode = node
 
     def onMarkupSelect(self, node):
-        #Test to see if the Compute button should be enabled/disabled
+        # Test to see if the Compute button should be enabled/disabled
         self.UpdatecomputeButtonState()
 
     def onCompute(self):
@@ -672,6 +677,7 @@ class WRISTWidget:
 
 
 
+
             # print(image.TransformPhysicalPointToContinuousIndex([seedPoints[i][0], seedPoints[i][0], seedPoints[i][0]]))
             # print(image.TransformPhysicalPointToContinuousIndex([seedPoints[i][1], seedPoints[i][1], seedPoints[i][1]]))
             # print(image.TransformPhysicalPointToContinuousIndex([seedPoints[i][2], seedPoints[i][2], seedPoints[i][2]]))
@@ -679,6 +685,21 @@ class WRISTWidget:
             # print(image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][0], -1*seedPoints[i][0], -1*seedPoints[i][0]]))
             # print(image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][1], -1*seedPoints[i][1], -1*seedPoints[i][1]]))
             # print(image.TransformPhysicalPointToContinuousIndex([-1*seedPoints[i][2], -1*seedPoints[i][2], -1*seedPoints[i][2]]))
+
+
+        # Check now that there is the same number of bone selected (in the Bone Selection table) as the number of seed points
+        if len(seedPoints) != len(self.BonesSelected):
+        	# If the lengths are not the same raise an error and provide a suggested solution
+			msg = qt.QMessageBox()
+			msg.setIcon(qt.QMessageBox.Information)
+			msg.setText("The number of seed points (i.e. fiducial markers) is not the same as the number of bones selected!")
+			msg.setInformativeText("Click on Show Details for a suggested fix.")
+			msg.setWindowTitle("WRIST - Error")
+			msg.setDetailedText("Click once per bone using the fiducial marker tool in 3D Slicer (looks like a circle with an arrow pointing up in the top menu)."+
+					" \n \nAfter creating the seed points, click on the Bone Selection table on the bone names in the same order as you created the seed locations.")
+			msg.show()
+
+			raise ValueError('The number of seed points (i.e. fiducial markers) is not the same as the number of bones selected!')
 
 
         # Initilize the two classes that are defined at the bottom of this file
@@ -1699,8 +1720,31 @@ class BoneSeg(object):
 
     # Function definitions are below
     def apply_AnisotropicFilter(self):
-        self.image = self.anisotropicFilter.Execute(self.image)
-        return self
+		try:
+			self.image = self.anisotropicFilter.Execute(self.image)
+		except:
+			# An error is generated here if the seed location is outside of the field of view
+			# This is likely due to the image not being in the RAS orientation
+			# Simple fix is to use the "Flip Seed XY" checkmark
+			# Other fix is to click on the "Ignore Orientation" advanced option when loading the image into 3D Slicer.
+
+			# If the lengths are not the same raise an error and provide a suggested solution
+			msg = qt.QMessageBox()
+			msg.setIcon(qt.QMessageBox.Information)
+			msg.setText("The requested region is outside the largest possible region! \n \n This is likely due to an issue with the seed locations.")
+			msg.setInformativeText("Click on Show Details for a suggested fix.")
+			msg.setWindowTitle("WRIST - Error")
+			msg.setDetailedText("There are two likely causes for this error. \n \nFirst check that the seed location is within the image field of view)."+
+			" \n \nThe second likely cause is the image in not in the RAS orientation. A simple fix is to use the 'Flip Seed XY' checkmark (below the Stop button)."+
+			"\n \nThis will flip the x and y coordinates to align correctly. Check the checkmark and try it again."+
+			"\n\nAlternatively, another fix is to click on the 'Ignore Orientation' advanced option when loading the image into 3D Slicer.")
+			msg.show()
+
+			raise ValueError('The requested region is outside the largest possible region! This is likely due to an issue with the seed locations.')
+
+
+
+		return self
 
     def savePointList(self):
         try:
