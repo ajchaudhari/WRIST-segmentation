@@ -58,6 +58,9 @@ class WRIST:
         	(*) If it's missing sections of the bone, try increasing anisotropic diffusion iterations (to reduce noise), increasing the propagation scale (more outward force on the level set), or adjusting sigmoid threshold. 
         	<br>
         	<br>
+
+        	SOURCE CODE
+        	<br>
         	Please see the README and source code at https://github.com/ajchaudhari/WRIST-segmentation <br>
         	<br>
         	For details on the approach please see Foster et al. 'WRIST-A WRist Image Segmentation Toolkit for Carpal Bone Delineation from MRI' Computerized Medical Imaging and Graphics (2017).
@@ -106,13 +109,13 @@ class WRISTWidget:
         self.inputVolumeSelectorLabel = qt.QLabel()
         self.inputVolumeSelectorLabel.setFont(qt.QFont('Arial', 12))
         self.inputVolumeSelectorLabel.setText("Input Volume: ")
-        self.inputVolumeSelectorLabel.setToolTip(
-            "Select the input volume to be segmented")
         self.inputSelector = slicer.qMRMLNodeComboBox()
         self.inputSelector.setFont(qt.QFont('Arial', 12))
         self.inputSelector.nodeTypes = ("vtkMRMLScalarVolumeNode", "")
         self.inputSelector.noneEnabled = False
         self.inputSelector.selectNodeUponCreation = True
+        self.inputSelector.setToolTip(
+            "Select the input volume to be segmented.")
         self.inputSelector.setMRMLScene(slicer.mrmlScene)
         frameLayout.addRow(
             self.inputVolumeSelectorLabel, self.inputSelector)
@@ -125,14 +128,14 @@ class WRISTWidget:
         self.outputVolumeSelectorLabel = qt.QLabel()
         self.outputVolumeSelectorLabel.setFont(qt.QFont('Arial', 12))
         self.outputVolumeSelectorLabel.setText("Output Volume: ")
-        self.outputVolumeSelectorLabel.setToolTip(
-            "Select the output volume to save to")
         self.outputSelector = slicer.qMRMLNodeComboBox()
         self.outputSelector.setFont(qt.QFont('Arial', 12))
         # self.outputSelector.nodeTypes = ("vtkMRMLScalarVolumeNode", "")
         self.outputSelector.nodeTypes = ["vtkMRMLLabelMapVolumeNode"]
         self.outputSelector.noneEnabled = False
         self.outputSelector.selectNodeUponCreation = True
+        self.outputSelector.setToolTip(
+            "Select the output volume to save the segmentation to.")
         self.outputSelector.setMRMLScene(slicer.mrmlScene)
         frameLayout.addRow(
             self.outputVolumeSelectorLabel, self.outputSelector)
@@ -151,6 +154,8 @@ class WRISTWidget:
         self.markupSelector.noneEnabled = False
         self.markupSelector.baseName = "Seed List"
         self.markupSelector.selectNodeUponCreation = True
+        self.markupSelector.setToolTip(
+            "Select the initial seed locations (i.e. fiducial markers) the segmentation initilizes with.")
         self.markupSelector.setMRMLScene(slicer.mrmlScene)
         self.markupSelector.setToolTip("Pick the markup list of fiducial markers to use as initial points for the segmentation. (One marker for each object of interest)")
         frameLayout.addRow(self.markupSelectorLabel, self.markupSelector)
@@ -173,6 +178,8 @@ class WRISTWidget:
         self.ModuleList.verticalHeader().setResizeMode(qt.QHeaderView.Stretch)
         self.ModuleList.selectionMode = qt.QAbstractItemView.MultiSelection
         self.ModuleList.horizontalHeader().setStretchLastSection(True)
+        self.ModuleList.setToolTip(
+            "Select the bones to be segmented in the same order that the seed locations were created in.")
         self.ModuleList.connect('itemSelectionChanged()', self.onModuleListChange)
 
         self.bone_list = [['Trapezium', 'Trapezoid', 'Scaphoid', 'Capitate'],['Lunate', 'Hamate', 'Triquetrum', 'Pisiform']]        
@@ -197,7 +204,6 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Gender Selection: ")
-
         self.GenderSelectionList = qt.QListWidget()
         self.GenderSelectionList.selectionMode = qt.QAbstractItemView.SingleSelection
         self.GenderSelectionList.addItem('Male')
@@ -206,6 +212,8 @@ class WRISTWidget:
         self.GenderSelectionList.setFont(qt.QFont('Arial', 12))
         self.GenderSelectionList.setResizeMode(qt.QHeaderView.Stretch)
         self.GenderSelectionList.setFixedHeight(75)
+        self.GenderSelectionList.setToolTip(
+            "Select the gender of the subject whose image will be segmented. This is used for some prior shape information.")
         # self.GenderSelectionList.setFixedSize(100,75)
 
         frameLayout.addRow(self.label, self.GenderSelectionList)
@@ -218,8 +226,6 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Anatomical Relaxation: ")
-        self.label.setToolTip(
-            "Select the relaxation on the prior anatomical knowledge contraint (e.g. 0.10 is 10 percent relaxation)")
         self.RelaxationSlider = ctk.ctkSliderWidget()
         self.RelaxationSlider.setFont(qt.QFont('Arial', 12))
         self.RelaxationSlider.minimum = 0
@@ -230,7 +236,8 @@ class WRISTWidget:
         self.RelaxationSlider.tickInterval = 0.01
         self.RelaxationSlider.decimals = 2
 
-
+        self.RelaxationSlider.setToolTip(
+            "The amount of relaxation on the prior shape volume information. A value of 0 aims to have the bone volume within a standard value while a value of 0.1 aims to have the volume within plus or minus 10 percent of the standard value. Choose a value of 1 to skip this step.")
         self.RelaxationSlider.connect('valueChanged(double)', self.onRelaxationSliderChange)
         frameLayout.addRow(self.label, self.RelaxationSlider)
         #Set default value
@@ -243,13 +250,12 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))                
         self.label.setText("Initial Maximum Iterations: ")
-        self.label.setToolTip(
-            "Select the maximum number of iterations for the shape detection level set convergence")
         self.ShapeMaxItsInputSlider = ctk.ctkSliderWidget()
         self.ShapeMaxItsInputSlider.setFont(qt.QFont('Arial', 12))
         self.ShapeMaxItsInputSlider.minimum = 0
         self.ShapeMaxItsInputSlider.maximum = 2500
         self.ShapeMaxItsInputSlider.value = 500
+        self.ShapeMaxItsInputSlider.setToolTip("Select the initial maximum amount of iterations for the shape detection level set convergence. The iteration number can adjust when the convergence checks are done.")
         self.ShapeMaxItsInputSlider.connect('valueChanged(double)', self.onShapeMaxItsInputSliderChange)
         frameLayout.addRow(self.label, self.ShapeMaxItsInputSlider)
         #Set default value
@@ -262,8 +268,6 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Maximum RMS Error: ")
-        self.label.setToolTip(
-            "Select the maximum root mean square error to determine convergence of the shape detection level set filter")
         self.ShapeMaxRMSErrorInputSlider = ctk.ctkSliderWidget()
         self.ShapeMaxRMSErrorInputSlider.setFont(qt.QFont('Arial', 12))
         self.ShapeMaxRMSErrorInputSlider.minimum = 0.001
@@ -272,13 +276,11 @@ class WRISTWidget:
         self.ShapeMaxRMSErrorInputSlider.singleStep = 0.001
         self.ShapeMaxRMSErrorInputSlider.tickInterval = 0.001
         self.ShapeMaxRMSErrorInputSlider.decimals = 3
+        self.ShapeMaxRMSErrorInputSlider.setToolTip("Select the maximum root mean square error to determine convergence of the shape detection level set filter")
         self.ShapeMaxRMSErrorInputSlider.connect('valueChanged(double)', self.onShapeMaxRMSErrorInputSliderChange)
         frameLayout.addRow(self.label, self.ShapeMaxRMSErrorInputSlider)
         #Set default value
         self.ShapeMaxRMSError = self.ShapeMaxRMSErrorInputSlider.value
-
-
-
 
         #
         # Shape Detection Level set curvatuve scale
@@ -286,8 +288,6 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Curvature Scale: ")
-        self.label.setToolTip(
-            "Select the shape curvature scale (higher number causes more smoothing)")
         self.ShapeCurvatureScaleInputSlider = ctk.ctkSliderWidget()
         self.ShapeCurvatureScaleInputSlider.setFont(qt.QFont('Arial', 12))
         self.ShapeCurvatureScaleInputSlider.minimum = 0
@@ -296,6 +296,7 @@ class WRISTWidget:
         self.ShapeCurvatureScaleInputSlider.singleStep = 0.01
         self.ShapeCurvatureScaleInputSlider.tickInterval = 0.01
         self.ShapeCurvatureScaleInputSlider.decimals = 1
+        self.ShapeCurvatureScaleInputSlider.setToolTip("Select the shape curvature scale (higher number causes more smoothing) to the surface.")
         self.ShapeCurvatureScaleInputSlider.connect('valueChanged(double)', self.onShapeCurvatureScaleInputSliderChange)
         frameLayout.addRow(self.label, self.ShapeCurvatureScaleInputSlider)
         #Set default value
@@ -308,8 +309,6 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Propagation Scale: ")
-        self.label.setToolTip(
-            "Select the shape curvature scale (higher number causes more smoothing)")
         self.ShapePropagationScaleInputSlider = ctk.ctkSliderWidget()
         self.ShapePropagationScaleInputSlider.setFont(qt.QFont('Arial', 12))
         self.ShapePropagationScaleInputSlider.minimum = 0
@@ -318,6 +317,7 @@ class WRISTWidget:
         self.ShapePropagationScaleInputSlider.singleStep = 0.2
         self.ShapePropagationScaleInputSlider.tickInterval = 0.2
         self.ShapePropagationScaleInputSlider.decimals = 1
+        self.ShapePropagationScaleInputSlider.setToolTip("Select the level set propagation scale (higher number causes more expansion force for growing).")
         self.ShapePropagationScaleInputSlider.connect('valueChanged(double)', self.onShapePropagationScaleInputSliderChange)
         frameLayout.addRow(self.label, self.ShapePropagationScaleInputSlider)
         # Set default value
@@ -330,13 +330,12 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Anisotropic Diffusion Its: ")
-        self.label.setToolTip(
-            "Select the number of iterations for the Anisotropic Diffusion filter for image denoising.")
         self.DiffusionItsSlider = ctk.ctkSliderWidget()
         self.DiffusionItsSlider.setFont(qt.QFont('Arial', 12))
         self.DiffusionItsSlider.minimum = 0
         self.DiffusionItsSlider.maximum = 25
         self.DiffusionItsSlider.value = 5
+        self.DiffusionItsSlider.setToolTip("Select the number of iterations for the Anisotropic Diffusion filter for image denoising.")
         self.DiffusionItsSlider.connect('valueChanged(double)', self.onDiffusionItsSliderChange)
         frameLayout.addRow(self.label, self.DiffusionItsSlider)
         # Set default value
@@ -349,25 +348,22 @@ class WRISTWidget:
         self.label = qt.QLabel()
         self.label.setFont(qt.QFont('Arial', 12))
         self.label.setText("Sigmoid Threshold: ")
-        self.label.setToolTip(
-            "Select the threshold that the sigmoid filter will use. Set to 0 to try to automatically find a good value.")
         self.SigmoidInputSlider = ctk.ctkSliderWidget()
         self.SigmoidInputSlider.setFont(qt.QFont('Arial', 12))
         self.SigmoidInputSlider.minimum = 0
         self.SigmoidInputSlider.maximum = 300
         self.SigmoidInputSlider.value = 0
+        self.SigmoidInputSlider.setToolTip("Select the threshold that the sigmoid filter will use. Set to 0 to try to automatically find a good value. Try using along with the 'Show Filtered Image' checkmark.")
         self.SigmoidThreshold = self.SigmoidInputSlider.value
         self.SigmoidInputSlider.connect('valueChanged(double)', self.onSigmoidInputSliderChange)
         frameLayout.addRow(self.label, self.SigmoidInputSlider)
-
-
-       
+     
         #
         # Compute button
         #
         self.computeButton = qt.QPushButton("Compute")
         self.computeButton.setFont(qt.QFont('Arial', 12))
-        self.computeButton.toolTip = "Compute the segmentation"
+        self.computeButton.toolTip = "Compute the segmentation. Make sure all the inputs have been selected to enable this button."
         self.computeButton.setFixedHeight(50)
         frameLayout.addWidget(self.computeButton)
         self.UpdatecomputeButtonState()
@@ -382,7 +378,6 @@ class WRISTWidget:
         self.stopButton.setFixedHeight(25)
         frameLayout.addWidget(self.stopButton)
         self.stopButton.connect('clicked()', self.onStopButton)
-
 
         #
         # Show Filtered Image Checkmark
@@ -412,7 +407,7 @@ class WRISTWidget:
         # Flip Sigmoid Checkmark
         #
         self.flip_sigmoid = qt.QCheckBox("Flip Sigmoid")
-        self.flip_sigmoid.toolTip = "When checked, the image to segment has the bones with a higher intensity (whiter) while the background is darker. Useful for certain MRI sequences and potentially for CT."
+        self.flip_sigmoid.toolTip = "Experimental option. When checked, the image to segment has the bones with a higher intensity (whiter) while the background is darker. Might be useful for certain MRI sequences and potentially for CT."
         self.flip_sigmoid.checked = False
         frameLayout.addWidget(self.flip_sigmoid) 
 
