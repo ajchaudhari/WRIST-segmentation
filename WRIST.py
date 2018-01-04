@@ -221,7 +221,7 @@ class WRISTWidget:
         self.RelaxationSlider.setFont(qt.QFont('Arial', 12))
         self.RelaxationSlider.minimum = 0
         self.RelaxationSlider.maximum = 1.0
-        self.RelaxationSlider.value = 0.10
+        self.RelaxationSlider.value = 0
 
         self.RelaxationSlider.singleStep = 0.01
         self.RelaxationSlider.tickInterval = 0.01
@@ -311,7 +311,7 @@ class WRISTWidget:
         self.ShapePropagationScaleInputSlider.setFont(qt.QFont('Arial', 12))
         self.ShapePropagationScaleInputSlider.minimum = 0
         self.ShapePropagationScaleInputSlider.maximum = 5
-        self.ShapePropagationScaleInputSlider.value = 4
+        self.ShapePropagationScaleInputSlider.value = 2
         self.ShapePropagationScaleInputSlider.singleStep = 0.2
         self.ShapePropagationScaleInputSlider.tickInterval = 0.2
         self.ShapePropagationScaleInputSlider.decimals = 1
