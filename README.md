@@ -12,7 +12,7 @@ This is a plugin, i.e. module, for the free open source medical image processing
 An accurate segmentation of the bones is cruical for image analysis including shape analysis, kinematic modeling, disease diagnosis and tracking, among many others. This plugin allows users to control parametrs of the method for fast and accurate results, even with high resolution datsets.
 
 <p>
-    <img src="Documentation/Example_Segmentation.png" alt>
+    <img src="Documentation/Example_Segmentation.PNG" alt>
     <em>Example MRI of the wrist and a rendering of the eight carpal bones. The method aims in segmenting the image to provide the boundaries of these bones.</em>
 </p>
 
@@ -44,7 +44,7 @@ See the animation above for a demonstration of the following steps.
 Flowchart
 -------	
 <p>
-    <img src="Documentation/Flowchart.png" alt>
+    <img src="Documentation/Flowchart.PNG" alt>
     <em>Flow chart overview of the method. Please see the corresponding paper for more details. </em>
 </p>
 
