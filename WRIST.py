@@ -351,7 +351,7 @@ class WRISTWidget:
         self.SigmoidInputSlider = ctk.ctkSliderWidget()
         self.SigmoidInputSlider.setFont(qt.QFont('Arial', 12))
         self.SigmoidInputSlider.minimum = 0
-        self.SigmoidInputSlider.maximum = 300
+        self.SigmoidInputSlider.maximum = 500
         self.SigmoidInputSlider.value = 0
         self.SigmoidInputSlider.setToolTip("Select the threshold that the sigmoid filter will use. Set to 0 to try to automatically find a good value. Try using along with the 'Show Filtered Image' checkmark.")
         self.SigmoidThreshold = self.SigmoidInputSlider.value
@@ -410,6 +410,14 @@ class WRISTWidget:
         self.flip_sigmoid.toolTip = "Experimental option. When checked, the image to segment has the bones with a higher intensity (whiter) while the background is darker. Might be useful for certain MRI sequences and potentially for CT."
         self.flip_sigmoid.checked = False
         frameLayout.addWidget(self.flip_sigmoid) 
+
+        #
+        # Show Edgemap Checkmark
+        #
+        self.show_edgemap = qt.QCheckBox("Show Edgemaps")
+        self.show_edgemap.toolTip = "When checked, the edgemap for each bone will be shown while the method is running. This is useful for debugging purposes and potentially finding a better value for the sigmoid threshold."
+        self.show_edgemap.checked = False
+        frameLayout.addWidget(self.show_edgemap) 
 
 
     def onStopButton(self):
@@ -529,23 +537,26 @@ class WRISTWidget:
 			if self.flip_sigmoid.checked == False:
 				sigFilter.SetAlpha(0)
 				sigFilter.SetBeta(int(self.SigmoidThreshold))
-				self.SigmoidInputSlider.maximum = 300
 			else:
 				sigFilter.SetAlpha(int(self.SigmoidThreshold))
 				sigFilter.SetBeta(0)
-				self.SigmoidInputSlider.maximum = 3000
 
-			sigFilter.SetOutputMinimum(0)
-			sigFilter.SetOutputMaximum(255)
-
+			# sigFilter.SetOutputMinimum(255)
+			# sigFilter.SetOutputMaximum(0)
 
 			# Find the input image in Slicer and convert to a SimpleITK image type
 			imageID = self.inputSelector.currentNode()
 			image = sitkUtils.PullFromSlicer(imageID.GetName())
 
+			# # TEST
+			# treshold_filter = sitk.ThresholdImageFilter()
+			# treshold_filter.SetLower(0)
+			# treshold_filter.SetUpper(int(self.SigmoidThreshold))
+			# processedImage = treshold_filter.Execute(image)
+			# # END TEST
+
 			processedImage  = sigFilter.Execute(image) 
 			processedImage  = sitk.Cast(processedImage, sitk.sitkUInt16)
-
 
 			gradientFilter = sitk.GradientImageFilter()
 			gradImage = gradientFilter.Execute(processedImage)
@@ -626,6 +637,9 @@ class WRISTWidget:
 
     	# Move the current state of the flip seed XY flag to the segmentation class object
     	self.multiHelper.segmentationClass.flip_seed_XY = self.flip_seed_XY.checked
+
+    	# Move the current state of the show edgemap checkmark to the segmentation class object
+    	self.multiHelper.segmentationClass.show_edgemap = self.show_edgemap.checked
 
         slicer.app.processEvents()
 
@@ -1012,6 +1026,14 @@ class BoneSeg(object):
         self.sigFilter.SetBeta(120)
         self.sigFilter.SetOutputMinimum(0)
         self.sigFilter.SetOutputMaximum(255)
+
+        # # If the Flip Sigmoid checkmark was selected flip the values
+        # if self.flip_sigmoid == False:
+        # 	self.sigFilter.SetOutputMinimum(0)
+        # 	self.sigFilter.SetOutputMaximum(255)
+        # else:
+        # 	self.sigFilter.SetOutputMinimum(255)
+        # 	self.sigFilter.SetOutputMaximum(0)        	
 
         # Search Space Window
         # self.SetSearchWindowSize(50)
@@ -1459,27 +1481,42 @@ class BoneSeg(object):
         return self
 
     def PreprocessLevelSet(self):
-        # Pre-processing for the level-set (e.g. create the edge map) only need to do once
-        
-        # self.sigFilter.SetBeta(120)
-        # self.sigFilter.SetAlpha(0)
+		# Pre-processing for the level-set (e.g. create the edge map) only need to do once
 
-        processedImage  = self.sigFilter.Execute(self.image) 
-        processedImage  = sitk.Cast(processedImage, sitk.sitkUInt16)
+		# self.sigFilter.SetBeta(120)
+		# self.sigFilter.SetAlpha(0)
 
-        edgePotentialFilter = sitk.EdgePotentialImageFilter()
-        gradientFilter = sitk.GradientImageFilter()
+		processedImage  = self.sigFilter.Execute(self.image) 
 
-        gradImage = gradientFilter.Execute(processedImage)
+		# treshold_filter = sitk.ThresholdImageFilter()
+		# treshold_filter.SetLower(0)
+		# treshold_filter.SetUpper(int(self.sigFilter.GetBeta()))
+		# processedImage = treshold_filter.Execute(self.image)
 
-        processedImage = edgePotentialFilter.Execute(gradImage)
+		processedImage  = sitk.Cast(processedImage, sitk.sitkUInt16)
 
-        ''' Create Seed Image '''
-        if self.verbose == True:
-            print('Starting ShapeDetectionLevelSetImageFilter')
-            start_time = timeit.default_timer() 
+		edgePotentialFilter = sitk.EdgePotentialImageFilter()
+		gradientFilter = sitk.GradientImageFilter()
 
-        self.EdgePotentialMap = sitk.Cast(processedImage, sitk.sitkFloat32)
+		gradImage = gradientFilter.Execute(processedImage)
+
+		processedImage = edgePotentialFilter.Execute(gradImage)
+
+		''' Create Seed Image '''
+		if self.verbose == True:
+			print('Starting ShapeDetectionLevelSetImageFilter')
+			start_time = timeit.default_timer() 
+
+		self.EdgePotentialMap = sitk.Cast(processedImage, sitk.sitkFloat32)
+
+		# If the Show Edgemap checkmark is checked then push each edgemap for each bone to 3D Slicer for visualization
+		if self.show_edgemap == True:
+			EdgePotentialMap = slicer.vtkMRMLScalarVolumeNode()
+			EdgePotentialMap.SetName('EdgePotentialMap - ' + self.current_bone)
+			slicer.mrmlScene.AddNode(EdgePotentialMap)
+
+			sitkUtils.PushVolumeToSlicer(self.EdgePotentialMap, targetNode=EdgePotentialMap, name='EdgePotentialMap'+ self.current_bone, className='vtkMRMLScalarVolumeNode')
+			slicer.util.setSliceViewerLayers(background='keep-current', foreground=EdgePotentialMap, label='keep-current', foregroundOpacity=0.5, labelOpacity=1)
 
     def InitializeLevelSet(self):
     	# Use the seed location to initilize the level set image
@@ -1538,9 +1575,10 @@ class BoneSeg(object):
         self.MaxVolume = []
         self.SeedListFilename = [] 
         self.SkipTresholdCalculation = False # Flag for running the sigmoid threshold calculation
-        self.DilateImage = False # Flag for dilating the final segmentation result
+        self.DilateImage  = False # Flag for dilating the final segmentation result
         self.flip_seed_XY = False # Flag for flipping the XY coordinates of the seed location
         self.flip_sigmoid = False # Flag for segmenting bones which have a higher intensity than background (i.e. lighter)
+        self.show_edgemap = False # Flap to show the edgemap for each bone
 
         ## Initilize the ITK filters ##
         # Filters to down/up sample the image for faster computation
