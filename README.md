@@ -32,7 +32,7 @@ See the animation above for a demonstration of the following steps.
 4. Using the 3D Slicer fiducial marker tool, click once per bone. 
 5. Use the Bone Selection table to click on the bones in the same order as the fiducial markers were selected in.
 6. Select male, female, or unknown for gender.
-7. Modify any parameters as needed. The "Show Filtered Image" checkmark can be quite helpful (also demonstrated below). 
+7. Modify any parameters as needed. The "Show Filtered Image" checkmark can be helpful (also demonstrated below). 
 8. Click on the Compute button. 
 9. If needed, use the 3D Slicer manual segmentation tool to fix any small segmentation errors or adjust the parameters slightly. 
 
@@ -64,6 +64,7 @@ Restart 3D Slicer.
 
 You should now see a folder named "Wrist Segmentation" with the module inside. If not, use the search button or the drop down in the top left in 3D Slicer. 
 
+Alternatively, the module will soon be added to the 3D Slicer Extensions Manager which will allow it to be installed with just a single button.
 
 Troubleshooting Guide
 -------	
@@ -83,7 +84,7 @@ The [corresponding paper](http://www.sciencedirect.com/science/article/pii/S0895
 
 > What is the flip table for?
 
-It mirrors the table names. This would be useful when the image is mirrored (left to right). 
+It mirrors the table names. This would be useful when the image is mirrored (left to right) versus the names in the table. 
 
 > What is the anatomical relaxation parameter used for?
 
@@ -91,19 +92,23 @@ It mirrors the table names. This would be useful when the image is mirrored (lef
 
 If the bone volume is outside the range, the method adjusts the parameters to correct for non-convergence. 
 
+Select a value of 1 for the parameter to ignore and skip the convergence checks.
+
 > How do I turn off the convergence checks?
 
 Simply set the anatomical parameter to a value of 1 to skip any checks on convergence.
 
 > The segmentation is leaking into the background! What do I do?
 
-First, attempt a new sigmoid threshold parameter. An easy way of selecting an appropriate value is to use the "Show Filtered Image" checkmark. See the animation below for an example of this. The image being shown is a preview of the edge potential map (without the anisotopic diffusion pre-processing to speed up this estimation). 
+First, attempt a new sigmoid threshold parameter. An easy way of selecting an appropriate value is to use the "Show Filtered Image" checkmark. See the animation below for an example of this. The image being shown is a preview of the edge potential map (without the anisotopic diffusion pre-processing to speed up this preview). 
 
-Adjust the Sigmoid Threshold slider until you see the edges of the bones being outlined as clear as possible.
+Options for further improvement:
 
-Next, try decreasing the anisotropic diffusion iterations. Sometimes it can cause the edge of the bone to be blurred out in the image.
-
-Alternatively, try decreasing the propagation scale parameter. This is the expansion force on the level set, and adjusting this will often solve the leakage issue.
+1. Adjust the Sigmoid Threshold slider until you see the edges of the bones being outlined as clear as possible.
+2. Decrease the anisotropic diffusion iterations. Sometimes it can cause the edge of the bone to be blurred out in the image.
+3. Decrease the propagation scale parameter. This is the expansion force on the level set, and adjusting this will often solve the leakage issue.
+4. Decrease the initial maximum iterations.
+5. Try moving the initial seed location to a non-noisy part of the bone.
 
 <p>
     <img src="Documentation/Sigmoid_Threshold.gif" alt>
@@ -118,7 +123,7 @@ Please see the below animation of the anisotropic diffusion filter preview.
 
 <p>
     <img src="Documentation/Anisotropic_Diffusion.gif" alt>
-    <em>The "Show Filtered Image" checkmark is quite useful for finding a good value for the Sigmoid Threshold parameter.</em>
+    <em>The "Show Filtered Image" checkmark is also useful for finding a good value for the Anisotropic Diffusion parameter.</em>
 </p>
 
 > The segmentation is not growing enough! What do I do?
@@ -129,7 +134,7 @@ Options for further improvement:
 1. Increase the number of anisotopic diffusion filter iterations. It is good at removing noise from the image. The noisy pixels may be the issue. 
 2. Increase the propagation scale parameter to increase the 'growing' force of the level set.
 3. Decrease the maximum RMS error parameter.
-
+4. Try the MRI bias correction filter in 3D Slicer or other filtering options in Slicer if the image is quite noisy.
 
 > Can I see a preview of the anisotropic diffusion filter along with the sigmoid threshold?
 
@@ -141,9 +146,7 @@ Not much as long as it is a few pixels away from the bone edge. Ideally, the see
 
 > I clicked on the Compute button and nothing happened! What should I do?
 
-First try clicking the "Flip Seed XY" checkmark and then the compute button again. This will solve the error if the image is not in RAS orientation causing the seed location to be flipped (this will be fixed in a future version). 
-
-If it still gives an error, double check that you have selected 1) an Input Image, 2) an Output Image, 3) a Markup List, 4) the corresponding bones in the Bone Selection table, and 5) a selection in the Gender Selection table. The most common error is that one of these inputs is missing. More descriptive error messages will be added soon. 
+Double check that you have selected 1) an Input Image, 2) an Output Image, 3) a Markup List, 4) the corresponding bones in the Bone Selection table, and 5) a selection in the Gender Selection table. The button will not be enabled until all the inputs are selected.
 
 
 > What does the Flip Sigmoid checkmark do?
