@@ -174,8 +174,8 @@ class WRISTWidget:
         self.ModuleList.setColumnCount(4)
         self.ModuleList.setFont(qt.QFont('Arial', 12))
         self.ModuleList.setFixedHeight(75)        
-        self.ModuleList.horizontalHeader().setResizeMode(qt.QHeaderView.Stretch)
-        self.ModuleList.verticalHeader().setResizeMode(qt.QHeaderView.Stretch)
+        self.ModuleList.horizontalHeader().setSectionResizeMode(True, qt.QHeaderView.Stretch)
+        self.ModuleList.verticalHeader().setSectionResizeMode(True, qt.QHeaderView.Stretch)
         self.ModuleList.selectionMode = qt.QAbstractItemView.MultiSelection
         self.ModuleList.horizontalHeader().setStretchLastSection(True)
         self.ModuleList.setToolTip(
@@ -210,7 +210,7 @@ class WRISTWidget:
         self.GenderSelectionList.addItem('Female')
         self.GenderSelectionList.addItem('Unknown')
         self.GenderSelectionList.setFont(qt.QFont('Arial', 12))
-        self.GenderSelectionList.setResizeMode(qt.QHeaderView.Stretch)
+        #self.GenderSelectionList.setSectionResizeMode(True, qt.QHeaderView.Stretch)
         self.GenderSelectionList.setFixedHeight(75)
         self.GenderSelectionList.setToolTip(
             "Select the gender of the subject whose image will be segmented. This is used for some prior shape information.")
